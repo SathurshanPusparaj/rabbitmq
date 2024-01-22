@@ -5066,12 +5066,12 @@
 		"basic": [
 			{
 				"key": "password",
-				"value": "guest",
+				"value": "root",
 				"type": "string"
 			},
 			{
 				"key": "username",
-				"value": "guest",
+				"value": "root",
 				"type": "string"
 			}
 		]

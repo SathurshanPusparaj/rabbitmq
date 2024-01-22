@@ -1,4 +1,4 @@
-package com.projectx.queue.rabbitmqdemo.producer.exchange;
+package com.projectx.queue.rabbitmqdemo.producer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 

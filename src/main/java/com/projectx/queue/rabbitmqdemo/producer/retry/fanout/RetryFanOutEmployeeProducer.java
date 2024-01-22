@@ -1,4 +1,4 @@
-package com.projectx.queue.rabbitmqdemo.producer.exchange.fanout;
+package com.projectx.queue.rabbitmqdemo.producer.retry.fanout;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,9 +9,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
-@Profile("fanout")
+@Profile("retry.fanout")
 @Service
-public class HumanResourceProducer implements Producer<Employee> {
+public class RetryFanOutEmployeeProducer implements Producer<Employee> {
+
+    private final static String EXCHANGE = "x.guideline2.work";
 
     @Autowired
     private RabbitTemplate template;
@@ -20,8 +22,8 @@ public class HumanResourceProducer implements Producer<Employee> {
     private ObjectMapper mapper;
 
     @Override
-    public void sendMessage(Employee data) throws JsonProcessingException {
+    public void  sendMessage(Employee data) throws JsonProcessingException {
         String value = mapper.writeValueAsString(data);
-        template.convertAndSend("x.hr", "", value);
+        template.convertAndSend(EXCHANGE, "", value);
     }
 }

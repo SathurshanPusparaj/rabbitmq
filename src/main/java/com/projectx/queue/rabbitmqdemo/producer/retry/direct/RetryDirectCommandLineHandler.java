@@ -1,4 +1,4 @@
-package com.projectx.queue.rabbitmqdemo.producer.dlx.withoutdlx;
+package com.projectx.queue.rabbitmqdemo.producer.retry.direct;
 
 import com.projectx.queue.rabbitmqdemo.entity.Picture;
 import com.projectx.queue.rabbitmqdemo.producer.Producer;
@@ -11,10 +11,10 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-@Profile("without-dlx")
+@Profile("retry.direct")
 @Component
 @Slf4j
-public class NotConfigDlxCommandLineHandler implements CommandLineRunner {
+public class RetryDirectCommandLineHandler implements CommandLineRunner {
 
     @Autowired
     private Producer<Picture> producer;

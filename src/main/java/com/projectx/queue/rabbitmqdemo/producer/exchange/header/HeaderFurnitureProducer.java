@@ -3,7 +3,7 @@ package com.projectx.queue.rabbitmqdemo.producer.exchange.header;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectx.queue.rabbitmqdemo.entity.Furniture;
-import com.projectx.queue.rabbitmqdemo.producer.exchange.Producer;
+import com.projectx.queue.rabbitmqdemo.producer.Producer;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.core.MessageProperties;

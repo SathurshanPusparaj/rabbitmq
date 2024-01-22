@@ -3,7 +3,7 @@ package com.projectx.queue.rabbitmqdemo.producer.dlx.withoutdlx;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectx.queue.rabbitmqdemo.entity.Picture;
-import com.projectx.queue.rabbitmqdemo.producer.exchange.Producer;
+import com.projectx.queue.rabbitmqdemo.producer.Producer;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;

@@ -270,3 +270,36 @@ Throwing exception provides us low level risk
 Manual rejection has a caveat, that is all consumer in the project needs to be manually marked with ack or reject
 If someone forget about this then, the message will be processed repeatedly.
 
+Retry mechanism
+
+Either keep requeue, or send to DLX
+Need something in between
+Retry after x seconds, for N times
+After more than N, send to DLX
+
+Retry Mechanism - For Direct Exchange
+
+![RabbitMQ Schema](src/main/resources/images/retry/direct/RabbitMQ-Schema.png)
+
+**Consumer with retry**
+1. Check the retry limit
+2. If retry limit < threshold, send message to wait exchange
+3. If retry limit reached, send message to dead exchange
+
+Header
+X-Death has a retry count
+
+Retry Mechanism - For Fanout Exchange
+**Consumer with retry**
+1. Check the retry limit
+2. If retry limit < threshold, send message to wait exchange(direct exchange). Use correct routing key
+Because, one queue might be processed and the other queue don't process the message(so only one queue need to process the message) 
+3. If retry limit reached, send message to dead exchange
+
+**Example**
+Exchanges
+    x.guideline2.xxx
+Queues
+    q.guideline2.accounting.xxx
+    q.guideline2.marketing.xxx
+
