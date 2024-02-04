@@ -303,3 +303,379 @@ Queues
     q.guideline2.accounting.xxx
     q.guideline2.marketing.xxx
 
+
+### Spring boot retry mechanism (x.spring.__ , q.spring.__)
+No code
+Configure on application.yml
+Define interval for retry
+Define maximum retry attempts
+Retry interval multiplier
+
+No wait exchange
+Once consumer class, two methods
+
+```
+# Spring retry mechanism - settings
+spring.rabbitmq.listener.simple.acknowledge-mode = auto
+spring.rabbitmq.listener.simple.retry.enabled=true
+spring.rabbitmq.listener.simple.retry.initial-interval=3s
+spring.rabbitmq.listener.simple.retry.max-interval=10s
+spring.rabbitmq.listener.simple.retry.max-attempts=5
+spring.rabbitmq.listener.simple.retry.multiplier=2
+```
+
+### Auto JSON Conversion
+
+```
+spring config
+
+@Bean
+public ObjectMapper objectMapper() {
+   return JsonMapper.builder().findAndAddModules().build();
+}
+
+@Bean
+public Jackson2JsonMessageConverter converter(ObjectMapper objectMapper) {
+    return new Jackson2JsonMessageConverter(objectMapper);
+}
+```
+
+### Spring Impl
+```
+public void sendMessage(DummyMessage data) throws JsonProcessingException {
+   template.convertAndSend("x.dummy", "", data);
+}
+```
+
+### Enable/Disable all the spring listeners
+A common interface defining methods for start/stop lifecycle control. The typical use case for this is to control asynchronous processing. NOTE: This interface does not imply specific auto-startup semantics. Consider implementing SmartLifecycle for that purpose.
+
+```
+@Service
+@Slf4j
+public class RabbitMQScheduler {
+
+    @Autowired
+    private RabbitListenerEndpointRegistry registry;
+
+    @Scheduled(cron = "0 0 23 * * *")
+    public void stopAll() {
+        registry.getListenerContainers().forEach(c -> {
+            log.info("Stopping listener container {}", c);
+            c.stop();
+        });
+    }
+
+    @Scheduled(cron = "1 0 0 * * *")
+    public void startAll() {
+        registry.getListenerContainers().forEach(c -> {
+            log.info("Stopping listener container {}", c);
+            c.stop();
+        });
+    }
+}
+```
+
+Channel Prefetch count
+
+Default count per consumer is 250
+
+```
+nowing how to tune your broker correctly brings the system up to speed without
+having to set up a larger cluster or doing a lot of updates in your client code. Understanding how to optimize the RabbitMQ prefetch count maximizes the speed of the
+system.
+
+The RabbitMQ prefetch value is used to specify how many messages are being sent at
+the same time.
+
+Messages in RabbitMQ are pushed from the broker to the consumers. The RabbitMQ
+default prefetch setting gives clients an unlimited buffer, meaning that RabbitMQ, by
+default, sends as many messages as it can to any consumer that appears ready to accept
+them. It is, therefore, possible to have more than one message "in flight" on a channel at
+any given moment.
+```
+### Change the prefetch setting
+
+The number of messages sent to the consumer at the same time can be specified through the prefetch count value. The prefetch count value is used to get as much out of the consumers as possible.
+If the prefetch count is too small, it could negatively affect the performance of RabbitMQ, since the platform is usually waiting for permission to send more messages.
+
+The number of allowed unacknowledged messages in consumer side is called as prefetch count.
+All Prefetch messages are removed from the rabbitmq and assign to consumer memory (channel).
+spring default prefetch count is  250
+
+spring.rabbitmq.listener.simple.prefetch=1
+
+```
+Example
+                        Producers
+                             |  produces
+                       500 messages
+                             |   
+    -------------------------------------------------
+    | Message processing     |                      |        
+    | takes long time        |                      |
+  consumer 1            consumer 2              consumer 3
+  250 messages         250 messages                Idle (because allow the messages are allocated to consumer 1 & 2)
+```
+
+### Estimate Prefetch value count
+```
+|---------------------------------------------------------------------|
+|consumer for each queue | Process time each message | prefetch value |
+|---------------------------------------------------------------------|
+|One or few              | Fast                      | High           |   
+|---------------------------------------------------------------------|
+|Many                    | Fast                      | Medium         |
+|---------------------------------------------------------------------|
+|One or few              |                           |                |   
+|------------------------| Slow                      | 1(One)         |
+|Many                    |                           |                |   
+|---------------------------------------------------------------------|
+
+Prefetch value depends on the computing power and the number of consumers
+```
+
+### multiple prefetch values
+
+```
+Create multiple beans with different prefetch count, like below
+
+    @Bean
+    public RabbitListenerContainerFactory<SimpleMessageListenerContainer> prefetchOneContainerFactory(
+            SimpleRabbitListenerContainerFactoryConfigurer configurer,
+            ConnectionFactory connectionFactory) {
+        var factory = new SimpleRabbitListenerContainerFactory();
+        configurer.configure(factory, connectionFactory);
+        factory.setPrefetchCount(1);
+        return factory;
+    }
+    
+configure the consumer,    
+    
+    @RabbitListener(queues = "q.dummy", containerFactory = "prefetchOneContainerFactory")
+    public void listenDummy(DummyMessage message) {
+        log.info("Message is {}", message);
+    }
+
+```
+
+### Message Order
+
+Publisher --> E|D|C|B|A --> Consumer
+RabbitMQ rule is : If we have only one consumer that listens to that one queue,
+Order of processing is guaranteed (Consumer receives A|B|C|D|E)
+
+If we have multiple consumers then the order is not guaranteed due to the competition.
+```
+Impact
+
+Message: invoice-created, invoice updated, invoice-paid
+expected result: Invoice status is PAID
+Competing consumer: CREATED-PAID-UPDATED
+Possible actual result: invoice status is UPDATED
+
+```
+
+### Multiple Message types
+
+#### One Queue for One Message Type
+
+```
+           |------q.invoice.paid-------- {inv_number:'', paid_date:'', payment_number=''
+           | Routing key: paid
+x.invoice -|
+           | Routing key: created
+           |-----q.invoice.created------ {inv_number:'', created_date:'', amount='', currency=''} 
+```
+
+#### One Queue for Multiple Message Types
+
+```         
+x.invoice ------> q.invoice | | | |2|1|
+                                   | |
+      -----------------------------| |
+      |                              |
+ |-----------------------|     |-----------------------|
+ |TypeID: invoice.created|     |TypeID: invoice.paid   | 
+ |-----------------------|     |-----------------------|
+ |{                      |     |{                      |
+ |   inv_number:'',      |     |   inv_number:'',      |
+ |   created_date:'',    |     |   paid_date:'',       |
+ |   created_date:'',    |     |   payment_number:'',  |
+ |   currency=''         |     |}                      |
+ |}                      |     |---------------------- |
+ |---------------------- |                               
+
+We can define the header by ourselves, or 
+when using Spring JSON converter, Spring already provides the header
+```
+
+### When to use
+
+```
+|---------------------------------------------------------------------------------|
+|Aspect          | One queue/message type    | One queue + multiple message type  |
+|---------------------------------------------------------------------------------|
+|Maintain queues | Many queues               | Less Many                          |   
+|---------------------------------------------------------------------------------|
+|Consumer codes  | Relatively easy           | Need to filter message             |
+|                |                           | Might harder if not use spring     |  
+|---------------------------------------------------------------------------------|
+```
+
+### One queue with Multiple Message types
+```
+Attach __TypeId__ in the header
+
+Producer
+
+public void sendInvoiceCreated(InvoiceCreatedMessage message) {
+  rabbitTemplate.convertAndSend(EXCHANGE, "", message);
+}
+
+priority:	0
+delivery_mode:	2
+headers:	
+__TypeId__:	com.projectx.queue.rabbitmqdemo.entity.InvoiceCreatedMessage
+content_encoding:	UTF-8
+content_type:	application/json
+Payload: 87 bytes
+Encoding: string
+{"amount":152.26,"createdDate":"2024-02-02","currency":"USD","invoiceNumber":"INV-140"}
+
+-----------------------------------------------------------------------
+Consumer
+
+@Profile("one.queue.multiple.message.types")
+@RabbitListener(queues = "q.invoice")
+public class InvoiceConsumer {
+
+    @RabbitHandler
+    public void handleInvoiceCreated(InvoiceCreatedMessage message) {
+        log.info("Invoice created : {}", message);
+    }
+
+    @RabbitHandler
+    public void handleInvoicePaid(InvoicePaidMessage message) {
+        log.info("Invoice paid : {}", message);
+    }
+
+    @RabbitHandler(isDefault = true) //This is used when If there is unknown object found in the queue (If not provide then spring throws exception if unknown type found)
+    public void handleDefault(Object message) {
+        log.info("Handling default : {}", message);
+    }
+}
+-----------------------------------------------------------------------
+```
+
+### @RabbitListener
+```
+On method
+On class
+    Combined with @RabbitHandler
+    Invoke different method based on payload
+```
+
+## How to achieve message order and multiple consumers in rabbitMQ
+**Use Consistent Hash Exchange**
+
+A hash function is a mathematical function that converts an input value into a unique but consistent value
+
+```
+docker exec -ti rabbitmq bash
+rabbitmq-plugins list
+rabbitmq-plugins enable rabbitmq_consistent_hash_exchange
+
+we need to define number as routing key
+This number represents the distribution ratio of queue that bound to hash exchange
+If you wish for queue one to receieve twice as many identifier routed to it.
+
+queue.one = routing key = 2n (10)
+queue.two = routing key = n (5)
+
+```
+
+## Reliable Publish
+Did my message published?
+Something wrong?
+    * Invalid exchange
+    * Correct exchange, invalid routing key
+Know via publisher conforms
+Asynchronous callback from rabbitmq server to publisher
+
+```
+spring.rabbitmq.publisher-confirm-type = correlated
+spring.rabbitmq.publisher-returns = true
+spring.rabbitmq.template.mandatory = true
+
+
+
+@Profile("reliable.producer")
+@Service
+@Slf4j
+public class ReliableProducer {
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
+    @PostConstruct
+    private void registerCallback() {
+        rabbitTemplate.setConfirmCallback(((correlationData, ack, cause) -> {
+            if (correlationData == null) {
+                return;
+            }
+
+            if (ack) {
+                log.info("Message with correlation {} published", correlationData.getId());
+            } else {
+                log.warn("Invalid exchange, message with correlation {} published", correlationData.getId());
+            }
+        }));
+
+        rabbitTemplate.setReturnsCallback(returned -> {
+            log.info("return callback");
+
+            var replyText = returned.getReplyText();
+            if (replyText != null && replyText.equalsIgnoreCase("NO_ROUTE")) {
+                var id = returned.getMessage().getMessageProperties().getHeader("spring_returned_message_correlation").toString();
+                log.warn("Invalid routing key for message {}", id);
+            }
+        });
+    }
+
+    public void sendDummyWithInvalidRoutingKey(DummyMessage message) {
+        var correlationData = new CorrelationData(Integer.toString(message.getPublishOrder()));
+        rabbitTemplate.convertAndSend("x.dummy2", "invalid-routing-key", message, correlationData);
+    }
+
+    public void sendDummyToInvalidExchange(DummyMessage message) {
+        var correlationData = new CorrelationData(Integer.toString(message.getPublishOrder()));
+        rabbitTemplate.convertAndSend("x.non-exists-exchange", "", message, correlationData);
+    }
+}
+```
+
+### Request/Reply
+
+```
+Consumer can also act as a producer
+
+ @RabbitHandler
+ @SendTo("exchange/routingkey")
+ //@SendTo("exchange/") -> alternative without routing key
+ public PaymentCancelStatus consume(InvoiceCancelledMessage message) {
+     var randomstatus = ThreadLocalRandom.current().nextBoolean();
+     return new PaymentCancelStatus(randomStatus, LocalDate.now(), message.getInvoiceNumber);
+ }
+```
+
+### create and configure bindings from consumer side
+```
+@RabbitListener(bindings = @QueueBinding(value = @Queue(name = "q.auto.dummy", durable = "true"),
+                                exchange = @Exchange(name = "x.auto-dummy", type = ExchangeTypes.DIRECT, durable = "true"),
+                                key="routing-key",
+                                ignoreDeclarationExceptions = "true"))
+                                
+// Other way
+check @Profile("test")                                
+```

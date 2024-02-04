@@ -1,10 +1,7 @@
 package com.projectx.queue.rabbitmqdemo.producer.test;
 
 import com.projectx.queue.rabbitmqdemo.consumer.test.ReceiveMessageHandler;
-import org.springframework.amqp.core.Binding;
-import org.springframework.amqp.core.BindingBuilder;
-import org.springframework.amqp.core.Queue;
-import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.rabbit.listener.adapter.MessageListenerAdapter;
@@ -46,6 +43,15 @@ public class ConfigureMessageQueue {
     @Bean
     MessageListenerAdapter getMessageListenerAdapter(ReceiveMessageHandler handler) {
         return new MessageListenerAdapter(handler, "handleMessage");
+    }
+
+    //@Bean
+    public Declarables rabbitmqSchema() {
+        return new Declarables(
+                new FanoutExchange("x.another-dummy", true, false),
+                new Queue("q.another-dummy"),
+                new Binding("q.another-dummy", Binding.DestinationType.QUEUE, "x-another-dummy", "", null)
+        );
     }
 
 
